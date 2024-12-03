@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package wikiTextParser;
+
+option go_package = "internal/protos/wikiTextParser";
+
+message WikiText {
+  string text = 1;
+}
+
+message JsonText {
+    string text = 1;
+}
+
+service WikiTextParserService {
+    rpc GetWikiTextParse (WikiText) returns (JsonText);
+}
