@@ -55,7 +55,7 @@ func taskGenerate(mongoClient *mongoDataBase) <-chan *YearTasks {
 
 	// 添加检测范围
 	percentPlan := []percentRange{}
-	for _, stepEnd := range []int{1, 5, 10, 20, 40, 60, 80} {
+	for _, stepEnd := range []int{10, 20, 40, 60, 80, 100} {
 		stepStart := 0
 		percentPlan = append(percentPlan, percentRange{
 			Start: stepStart,
@@ -63,21 +63,22 @@ func taskGenerate(mongoClient *mongoDataBase) <-chan *YearTasks {
 		})
 	}
 
-	for _, stepEnd := range []int{10, 20, 30, 40, 50, 60, 70, 80} {
-		stepStart := stepEnd - 10
-		percentPlan = append(percentPlan, percentRange{
-			Start: stepStart,
-			End:   stepEnd,
-		})
-	}
+	// 废弃的方案, 分层的网络会出现以外的情况
+	// for _, stepEnd := range []int{10, 20, 30, 40, 50, 60, 70, 80, 100} {
+	// 	stepStart := stepEnd - 10
+	// 	percentPlan = append(percentPlan, percentRange{
+	// 		Start: stepStart,
+	// 		End:   stepEnd,
+	// 	})
+	// }
 
-	for _, stepEnd := range []int{20, 40, 60, 80} {
-		stepStart := stepEnd - 20
-		percentPlan = append(percentPlan, percentRange{
-			Start: stepStart,
-			End:   stepEnd,
-		})
-	}
+	// for _, stepEnd := range []int{20, 40, 60, 80, 100} {
+	// 	stepStart := stepEnd - 20
+	// 	percentPlan = append(percentPlan, percentRange{
+	// 		Start: stepStart,
+	// 		End:   stepEnd,
+	// 	})
+	// }
 	yearStart := 2024
 	yearEnd := 1940
 
@@ -90,12 +91,12 @@ func taskGenerate(mongoClient *mongoDataBase) <-chan *YearTasks {
 			for _, plan := range percentPlan {
 				for _, rankType := range []string{"total", "current"} {
 
-					if !mongoClient.IsEntropyComplete(year, plan.Start, plan.End, rankType) {
-						oneYearTask.GraphTask = append(oneYearTask.GraphTask, graphTask{
-							PR:       plan,
-							RankType: rankType,
-						})
-					}
+					// if !mongoClient.IsEntropyComplete(year, plan.Start, plan.End, rankType) {
+					oneYearTask.GraphTask = append(oneYearTask.GraphTask, graphTask{
+						PR:       plan,
+						RankType: rankType,
+					})
+					// }
 				}
 			}
 			outChan <- &oneYearTask
@@ -134,10 +135,12 @@ func maxUint64(values []uint64) uint64 {
 func MainExt() {
 	log.Info().Msg("start")
 
+	// 大于 2 的度 最大约 60%
+	GatherLinksInCount := 2
 	// init pool
 	const (
-		initialPoolSize   = 2                     // 初始线程池大小
-		maxPoolSize       = 8                     // 初始线程池大小
+		initialPoolSize   = 4                     // 初始线程池大小
+		maxPoolSize       = 12                    // 初始线程池大小
 		checkInterval     = 10 * 60 * time.Second // 检测间隔
 		resetPeakInterval = 60 * time.Minute      // 重置峰值间隔
 	)
@@ -207,6 +210,12 @@ func MainExt() {
 
 	bar := progressbar.Default(-1, "")
 	for item := range worksChan {
+
+		// filter useless nodes
+		if item.LinksInWorksCount == 0 && len(item.ReferencedWorks) == 0 {
+			continue
+		}
+
 		worksMap[item.ID] = item
 		totalLinksInCountMap[item.ID] = item.LinksInWorksCount
 		bar.Add(1)
@@ -221,7 +230,7 @@ func MainExt() {
 		year := task.Year
 
 		if len(task.GraphTask) < 1 {
-			log.Info().Any("year", year).Msg("no task")
+			log.Info().Any("year", year).Msg("No task")
 			continue
 		}
 
@@ -229,6 +238,7 @@ func MainExt() {
 		log.Info().Any("year", year).Msg("start works filter by year")
 		newWorksMap := make(map[int64]*worksMongo)
 		for key, item := range worksMap {
+
 			if item.PublicationYear <= int32(year) {
 				newWorksMap[key] = worksMap[key]
 			}
@@ -246,12 +256,15 @@ func MainExt() {
 		var worksSliceTotalRank []*worksMongo
 		wg := sync.WaitGroup{}
 		wg.Add(2)
+		worksList := filterWorksByLinksIn(worksMap, currentLinksInCountMap, int32(GatherLinksInCount))
+		worksListNew := make([]*worksMongo, len(worksList))
+		copy(worksListNew, worksList)
 		go func() {
-			worksSliceCurrentRank = sortWorksByLinksInMap(worksMap, currentLinksInCountMap)
+			worksSliceCurrentRank = sortWorksByLinksInMap(worksListNew, currentLinksInCountMap)
 			wg.Done()
 		}()
 		go func() {
-			worksSliceTotalRank = sortWorksByLinksInMap(worksMap, totalLinksInCountMap)
+			worksSliceTotalRank = sortWorksByLinksInMap(worksList, totalLinksInCountMap)
 			wg.Done()
 		}()
 		wg.Wait()
@@ -276,12 +289,12 @@ func MainExt() {
 				subWg.Add(2)
 				go func() {
 					entropy1 := subGraph.DegreeEntropy()
-					mongoClient.InsertEntropy(year, plan.PR.Start, plan.PR.End, len(subGraph.Nodes), plan.RankType, "degree", entropy1)
+					mongoClient.InsertEntropy(year, plan.PR.Start, plan.PR.End, len(subGraph.Nodes), subGraph.EdgeCount, plan.RankType, "degree", entropy1)
 					subWg.Done()
 				}()
 				go func() {
 					entropy2 := subGraph.StructEntropy()
-					mongoClient.InsertEntropy(year, plan.PR.Start, plan.PR.End, len(subGraph.Nodes), plan.RankType, "struct", entropy2)
+					mongoClient.InsertEntropy(year, plan.PR.Start, plan.PR.End, len(subGraph.Nodes), subGraph.EdgeCount, plan.RankType, "struct", entropy2)
 					subWg.Done()
 				}()
 				subWg.Wait()
@@ -294,7 +307,6 @@ func MainExt() {
 		wg.Wait()
 		log.Info().Any("year", year).Msg("complete")
 	}
-
 }
 
 // 现在是网络子图, 没有子图外的 edge
@@ -323,7 +335,6 @@ func getWorksGraph(worksMap []*worksMongo) *graph.Graph[int64] {
 
 	worksGraph := graph.NewGraphFromChan(edgeChan)
 	return worksGraph
-
 }
 
 func worksShrink(worksMap map[int64]*worksMongo) (map[int64]*worksMongo, map[int64]int32) {
@@ -350,13 +361,18 @@ func worksShrink(worksMap map[int64]*worksMongo) (map[int64]*worksMongo, map[int
 	return newWorksMap, newLinksInCountMap
 }
 
-func sortWorksByLinksInMap(worksMap map[int64]*worksMongo, linksInMap map[int64]int32) []*worksMongo {
-	// 根据总的 links 长度进行排序
+func filterWorksByLinksIn(worksMap map[int64]*worksMongo, linksInMap map[int64]int32, gatherInt int32) []*worksMongo {
 	worksMongoList := []*worksMongo{}
 	for key := range worksMap {
+		if linksInMap[key] < gatherInt {
+			continue
+		}
 		worksMongoList = append(worksMongoList, worksMap[key])
 	}
+	return worksMongoList
+}
 
+func sortWorksByLinksInMap(worksMongoList []*worksMongo, linksInMap map[int64]int32) []*worksMongo {
 	// 降序
 	slices.SortFunc(worksMongoList, func(a, b *worksMongo) int {
 		return int(linksInMap[b.ID] - linksInMap[a.ID])

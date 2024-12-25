@@ -86,6 +86,12 @@ github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyf
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ider-zh/graph-entropy-go v0.0.1 h1:3LdDPTEk8GDvhD68qZUeygu7u+m1JpS1LFcPYrn8gMI=
 github.com/ider-zh/graph-entropy-go v0.0.1/go.mod h1:vDHQsfnjwq8ggVbfe9AgLXVqAj2XOSHpdCw6nAeHZmE=
+github.com/ider-zh/graph-entropy-go v0.0.3 h1:ioIuwDHnotqJW8rIKkOd8vwt5E1hEwtrtSROthiHcrQ=
+github.com/ider-zh/graph-entropy-go v0.0.3/go.mod h1:HBDy9L20QiKeeyNrqw+g3vixi7O1hx7JUGxmx8deSMU=
+github.com/ider-zh/graph-entropy-go v0.0.4 h1:5Lck4pyb42CV9OUfaqnViqvVA6Oi6hTAne09oiQIgb4=
+github.com/ider-zh/graph-entropy-go v0.0.4/go.mod h1:HBDy9L20QiKeeyNrqw+g3vixi7O1hx7JUGxmx8deSMU=
+github.com/ider-zh/graph-entropy-go v0.0.5 h1:AZYf6GmW3EM0dUe+jEPze2meaymkJlGfeoFayWEqjSc=
+github.com/ider-zh/graph-entropy-go v0.0.5/go.mod h1:HBDy9L20QiKeeyNrqw+g3vixi7O1hx7JUGxmx8deSMU=
 github.com/ider-zh/wikipedia-dump-parser v0.0.0-20241121085410-3905588dcb00 h1:eHiz+FRKHJEgedqxaSHXWbWo2DlYYr3x29LskvNNRMs=
 github.com/ider-zh/wikipedia-dump-parser v0.0.0-20241121085410-3905588dcb00/go.mod h1:gqPh/pw5cdVepYprnol56EAKZohkGBQxXqBpeCu7RmI=
 github.com/ider-zh/wikipedia-dump-parser v0.0.0-20241122030703-1e2de512258d h1:yfD1LZD/DafQ5/UaDTGa2uIELMhX1l8FGrUsLq0S23k=

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	wikientropy "graph-computing-go/internal/wikiEntropy"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -22,11 +23,21 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("wikiEntropy called")
-		wikientropy.Main()
+		_type, _ := cmd.Flags().GetString("type")
+		log.Info().Str("Flag", _type).Msg("flag")
+
+		switch _type {
+		case "subject":
+			wikientropy.MainSubject()
+		case "total":
+			wikientropy.Main()
+		}
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(wikiEntropyCmd)
 
+	wikiEntropyCmd.PersistentFlags().StringP("type", "t", "subject", "what entropy to calculate, subject or total")
 }

@@ -45,24 +45,25 @@ type pageJson struct {
 }
 
 type PageInMongo struct {
-	RevisionID int64     `bson:"_id,omitempty"`
-	PageID     int64     `bson:"page_id,omitempty"`
-	Timestamp  time.Time `bson:"timestamp,omitempty"`
-	// Ns                   int32
-	Title                string   `bson:"title,omitempty"`
-	Redirect             *string  `bson:"redirect,omitempty"`
-	PageLinksOut         []string `bson:"page_links_out,omitempty"`
-	PageCategoryLinksOut []string `bson:"page_category_links_out,omitempty"`
-	YearTags             []int    `bson:"year_tags,omitempty"`
-	PageLinksOutIDs      []int64  `bson:"-"`
-	PageLinksInIDs       []int64  `bson:"-"`
-	RedirectID           *int64   `bson:"-"`
+	RevisionID           int64     `bson:"_id,omitempty"`
+	PageID               int64     `bson:"page_id,omitempty"`
+	Timestamp            time.Time `bson:"timestamp,omitempty"`
+	Ns                   int32     `bson:"ns"`
+	Title                string    `bson:"title,omitempty"`
+	Redirect             *string   `bson:"redirect,omitempty"`
+	PageLinksOut         []string  `bson:"page_links_out,omitempty"`
+	PageCategoryLinksOut []string  `bson:"page_category_links_out,omitempty"`
+	YearTags             []int     `bson:"year_tags,omitempty"`
+	PageLinksOutIDs      []int64   `bson:"-"`
+	PageLinksInIDs       []int64   `bson:"-"`
+	RedirectID           *int64    `bson:"-"`
 }
 
 type RevisionData struct {
 	RevisionID      int64                `bson:"_id,omitempty"`
 	Revision        *wikiparser.Revision `bson:"revision,omitempty"`
 	YearTags        []int                `bson:"year_tags,omitempty"`
+	Ns              int32                `bson:"ns"`
 	Timestamp       time.Time            `bson:"timestamp,omitempty"`
 	PageID          int64                `bson:"page_id,omitempty"`
 	Title           string               `bson:"title,omitempty"`

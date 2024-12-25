@@ -3,7 +3,7 @@ module graph-computing-go
 go 1.23.2
 
 require (
-	github.com/ider-zh/graph-entropy-go v0.0.1
+	github.com/ider-zh/graph-entropy-go v0.0.5
 	github.com/ider-zh/wikipedia-dump-parser v0.0.4
 	github.com/rs/zerolog v1.33.0
 	github.com/schollz/progressbar/v3 v3.17.1

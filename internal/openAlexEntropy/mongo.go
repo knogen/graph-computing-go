@@ -37,6 +37,7 @@ func (c *mongoDataBase) close() {
 
 func (c *mongoDataBase) Get_works() <-chan *worksMongo {
 
+	// cursor, err := c.database.Collection("works").Find(ctx, bson.M{"links_in_works": bson.M{"$gte": 2}})
 	cursor, err := c.database.Collection("works").Find(ctx, bson.M{})
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to insert many")
@@ -56,16 +57,17 @@ func (c *mongoDataBase) Get_works() <-chan *worksMongo {
 	return outchan
 }
 
-func (c *mongoDataBase) InsertEntropy(year, statPercent, endPercent, graphSize int, rankType, entropyType string, entropy any) {
+func (c *mongoDataBase) InsertEntropy(year, startPercent, endPercent, graphSize, edgeCount int, rankType, entropyType string, entropy any) {
 
 	document := map[string]any{
-		"year":        year,
-		"statPercent": statPercent,
-		"endPercent":  endPercent,
-		"graphSize":   graphSize,
-		"rankType":    rankType,
-		"entropyType": entropyType,
-		"entropy":     entropy,
+		"year":         year,
+		"startPercent": startPercent,
+		"endPercent":   endPercent,
+		"graphSize":    graphSize,
+		"edgeCount":    edgeCount,
+		"rankType":     rankType,
+		"entropyType":  entropyType,
+		"entropy":      entropy,
 	}
 	_, err := c.database.Collection("entropy").InsertOne(ctx, document)
 	if err != nil {
@@ -73,16 +75,52 @@ func (c *mongoDataBase) InsertEntropy(year, statPercent, endPercent, graphSize i
 	}
 }
 
+func (c *mongoDataBase) InsertSubjectEntropy(subject string, year, startPercent, endPercent, graphSize, edgeCount int, rankType, entropyType string, entropy any) {
+
+	document := map[string]any{
+		"year":         year,
+		"subject":      subject,
+		"startPercent": startPercent,
+		"endPercent":   endPercent,
+		"graphSize":    graphSize,
+		"edgeCount":    edgeCount,
+		"rankType":     rankType,
+		"entropyType":  entropyType,
+		"entropy":      entropy,
+	}
+	_, err := c.database.Collection("subject_entropy").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
 // 因为有两种熵的计算, 所有结果数需要 > 2
-func (c *mongoDataBase) IsEntropyComplete(year, statPercent, endPercent int, rankType string) bool {
+func (c *mongoDataBase) IsEntropyComplete(year, startPercent, endPercent int, rankType string) bool {
 	count, err := c.database.Collection("entropy").CountDocuments(ctx, bson.M{
-		"year":        year,
-		"statPercent": statPercent,
-		"endPercent":  endPercent,
-		"rankType":    rankType,
+		"year":         year,
+		"startPercent": startPercent,
+		"endPercent":   endPercent,
+		"rankType":     rankType,
 	})
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to count documents")
 	}
 	return count > 1
+}
+
+// 因为有两种熵的计算, 所有结果数需要 > 2
+
+func (c *mongoDataBase) InsertGraphDegreeStats(year int, graphSize int, linksStats map[int]int, linksInStats map[int]int, linksOutStats map[int]int) {
+
+	document := map[string]any{
+		"year":          year,
+		"graphSize":     graphSize,
+		"linksInStats":  linksInStats,
+		"linksStats":    linksStats,
+		"linksOutStats": linksOutStats,
+	}
+	_, err := c.database.Collection("degree_stats").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
 }

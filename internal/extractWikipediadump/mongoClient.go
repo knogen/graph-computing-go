@@ -112,9 +112,9 @@ func (c *mongoDataBase) Insert_many_fail_pages(pageList []*RevisionData) {
 
 }
 
-func (c *mongoDataBase) Get_pages_by_year(year int) (<-chan *PageInMongo, error) {
+func (c *mongoDataBase) Get_pages_by_year(year, ns int) (<-chan *PageInMongo, error) {
 	outChan := make(chan *PageInMongo, 32)
-	filter := bson.M{"year_tags": year}
+	filter := bson.M{"year_tags": year, "ns": ns}
 	cursor, err := c.database.Collection("revision_complete").Find(ctx, filter)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to find documents")
@@ -136,15 +136,73 @@ func (c *mongoDataBase) Get_pages_by_year(year int) (<-chan *PageInMongo, error)
 	return outChan, nil
 }
 
-func (c *mongoDataBase) InsertEntropy(year, graphSize int, entropyType string, entropy any) {
+func (c *mongoDataBase) Get_pages_subject_cat(tag string, ns int) (<-chan *PageInMongo, error) {
+	outChan := make(chan *PageInMongo, 32)
+	filter := bson.M{"core_subject_tag": tag, "ns": ns}
+	cursor, err := c.database.Collection("revision_complete").Find(ctx, filter)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to find documents")
+		return nil, err
+	}
+
+	go func() {
+		defer close(outChan)
+		for cursor.Next(ctx) {
+			var page *PageInMongo
+			err := cursor.Decode(&page)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to decode document")
+				continue
+			}
+			outChan <- page
+		}
+	}()
+	return outChan, nil
+}
+
+func (c *mongoDataBase) InsertEntropy(year, graphSize, edgeCount, startPercent, endPercent int, entropyType string, entropy any) {
+
+	document := map[string]any{
+		"year":         year,
+		"graphSize":    graphSize,
+		"edgeCount":    edgeCount,
+		"entropyType":  entropyType,
+		"entropy":      entropy,
+		"startPercent": startPercent,
+		"endPercent":   endPercent,
+	}
+	_, err := c.database.Collection("entropy").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
+func (c *mongoDataBase) InsertSubjectEntropy(year, graphSize, edgeCount int, subject, entropyType string, level int, entropy any) {
 
 	document := map[string]any{
 		"year":        year,
 		"graphSize":   graphSize,
+		"edgeCount":   edgeCount,
+		"subject":     subject,
+		"level":       level,
 		"entropyType": entropyType,
 		"entropy":     entropy,
 	}
-	_, err := c.database.Collection("entropy").InsertOne(ctx, document)
+	_, err := c.database.Collection("subject_entropy").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
+func (c *mongoDataBase) InsertGraphDegreeStats(year int, linksStats map[int]int, linksInStats map[int]int, linksOutStats map[int]int) {
+
+	document := map[string]any{
+		"year":          year,
+		"linksInStats":  linksInStats,
+		"linksStats":    linksStats,
+		"linksOutStats": linksOutStats,
+	}
+	_, err := c.database.Collection("degree_stats").InsertOne(ctx, document)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to insert one")
 	}

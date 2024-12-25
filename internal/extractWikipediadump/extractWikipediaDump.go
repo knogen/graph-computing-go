@@ -57,7 +57,7 @@ func ExtractWikipediaDump() {
 
 	}
 
-	wikiparser.Parse7zXmlSeparateFlow(filePathList, fileReadThreadCount, []int32{0}, func(pageChan <-chan *wikiparser.Page, filePath string) {
+	wikiparser.Parse7zXmlSeparateFlow(filePathList, fileReadThreadCount, []int32{0, 14}, func(pageChan <-chan *wikiparser.Page, filePath string) {
 
 		log.Info().Str("filePath", filePath).Msg("start")
 		revisionDataChan := make(chan *RevisionData, 64)
@@ -130,9 +130,7 @@ func abs(d time.Duration) time.Duration {
 func pageChanHandle(pageChan <-chan *wikiparser.Page, revisionDataChan chan<- *RevisionData) {
 	// 找到年度 年度 snapshot, 将其传输到下一步
 	for page := range pageChan {
-		if page.Ns != 0 {
-			continue
-		}
+
 		var revisionList []RevisionData
 		for _, revision := range page.Revisions {
 			timestamp, err := time.Parse("2006-01-02T15:04:05Z", revision.Timestamp)
@@ -144,10 +142,12 @@ func pageChanHandle(pageChan <-chan *wikiparser.Page, revisionDataChan chan<- *R
 			if timestamp.Year() < 2000 {
 				continue
 			}
-			revisionList = append(revisionList, RevisionData{
+			rd := RevisionData{
 				Revision:  &revision,
 				Timestamp: timestamp,
-			})
+			}
+			rd.Ns = page.Ns
+			revisionList = append(revisionList, rd)
 		}
 
 		// 根据时间戳排序
@@ -225,6 +225,7 @@ func revisionDataHandle(revisionDataChan <-chan *RevisionData, PageInMongoChan c
 				RevisionID: revisionData.Revision.ID,
 				PageID:     revisionData.PageID,
 				Title:      revisionData.Title,
+				Ns:         revisionData.Ns,
 				Redirect:   revisionData.RediredTitle,
 				YearTags:   revisionData.YearTags,
 				Timestamp:  revisionData.Timestamp,
@@ -264,6 +265,7 @@ func revisionDataHandle(revisionDataChan <-chan *RevisionData, PageInMongoChan c
 		PageInMongoChan <- &PageInMongo{
 			RevisionID:           revisionData.Revision.ID,
 			PageID:               revisionData.PageID,
+			Ns:                   revisionData.Ns,
 			Title:                revisionData.Title,
 			YearTags:             revisionData.YearTags,
 			PageLinksOut:         PageLinksOut,

@@ -2,11 +2,16 @@ package wikientropy
 
 import (
 	"context"
+	"math"
+	"slices"
 	"strings"
+	"sync"
 
 	extractwikipediadump "graph-computing-go/internal/extractWikipediadump"
 
+	"github.com/emirpasic/gods/v2/sets/hashset"
 	"github.com/ider-zh/graph-entropy-go/graph"
+	"github.com/panjf2000/ants/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
 	"github.com/sethvargo/go-envconfig"
@@ -30,24 +35,97 @@ func init() {
 	}
 }
 
+type percentRange struct {
+	Start int
+	End   int
+}
+
+func taskPorpetionGenerate() []percentRange {
+
+	// 添加检测范围
+	percentPlan := []percentRange{}
+	for _, stepEnd := range []int{10, 20, 40, 60, 80, 100} {
+		stepStart := 0
+		percentPlan = append(percentPlan, percentRange{
+			Start: stepStart,
+			End:   stepEnd,
+		})
+	}
+
+	// for _, stepEnd := range []int{10, 20, 30, 40, 50, 60, 70, 80, 90, 100} {
+	// 	stepStart := stepEnd - 10
+	// 	percentPlan = append(percentPlan, percentRange{
+	// 		Start: stepStart,
+	// 		End:   stepEnd,
+	// 	})
+	// }
+
+	// for _, stepEnd := range []int{20, 40, 60, 80, 100} {
+	// 	stepStart := stepEnd - 20
+	// 	percentPlan = append(percentPlan, percentRange{
+	// 		Start: stepStart,
+	// 		End:   stepEnd,
+	// 	})
+	// }
+
+	return percentPlan
+}
+
 func Main() {
 	mongoClient := extractwikipediadump.NewMongoDataBase(conf.MongoUrl, conf.WikiVersion)
-	for year := 2001; year <= 2024; year += 1 {
-		revisionChan, err := mongoClient.Get_pages_by_year(year)
+	pool, _ := ants.NewPool(20)
+	defer pool.Release()
+	wg := sync.WaitGroup{}
+	// for year := 2024; year >= 2001; year -= 1 {
+	for year := 2004; year <= 2024; year += 1 {
+
+		log.Info().Int("year", year).Msg("graph entropy start")
+		revisionChan, err := mongoClient.Get_pages_by_year(year, 0)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to get pages by year")
 		}
+
 		pageMap := pageLinkHandle(revisionChan)
-		graphSci := getWorksGraph(pageMap)
 
-		log.Info().Int("total page:", len(pageMap)).Int("total item:", len(graphSci.Nodes)).Msg("graph build finish")
+		// 按 in-degree 排序
+		graphLinksInCountMap := make(map[int64]int)
+		for _, item := range pageMap {
+			if item.Redirect != nil {
+				continue
+			}
+			for _, linksOutID := range item.PageLinksOutIDs {
+				graphLinksInCountMap[linksOutID] += 1
+			}
+		}
 
-		entropy1 := graphSci.DegreeEntropy()
-		mongoClient.InsertEntropy(year, len(graphSci.Nodes), "degress", entropy1)
+		// totalWikiItemSlice without redirect
+		totalWikiItemSlice := rankWikiItemSlices(pageMap, graphLinksInCountMap)
 
-		entropy2 := graphSci.StructEntropy()
-		mongoClient.InsertEntropy(year, len(graphSci.Nodes), "struct", entropy2)
+		// 获取 task percent
+		for _, taskItem := range taskPorpetionGenerate() {
 
+			wg.Add(1)
+			pool.Submit(func() {
+
+				log.Info().Int("year", year).Int("start", taskItem.Start).Int("end", taskItem.End).Msg("graph entropy start")
+				wikiItemSlice := sliceWikiItemByPercent(totalWikiItemSlice, taskItem.Start, taskItem.End)
+
+				// 对 page 进行排序
+				graphSci := getWorksGraph(wikiItemSlice)
+
+				log.Info().Int("total page:", len(pageMap)).Int("total item:", len(graphSci.Nodes)).Msg("graph build finish")
+
+				entropy1 := graphSci.DegreeEntropy()
+				mongoClient.InsertEntropy(year, len(graphSci.Nodes), graphSci.EdgeCount, taskItem.Start, taskItem.End, "degree", entropy1)
+
+				entropy2 := graphSci.StructEntropy()
+				mongoClient.InsertEntropy(year, len(graphSci.Nodes), graphSci.EdgeCount, taskItem.Start, taskItem.End, "struct", entropy2)
+
+				log.Info().Int("year", year).Int("start", taskItem.Start).Int("end", taskItem.End).Msg("graph entropy complete")
+				wg.Done()
+			})
+		}
+		wg.Wait()
 	}
 }
 
@@ -55,16 +133,27 @@ func titleFilter(item string) string {
 	return strings.TrimSpace(strings.ReplaceAll(strings.ToLower(item), "_", " "))
 }
 
-func getWorksGraph(pageIDMap map[int64]*extractwikipediadump.PageInMongo) *graph.Graph[int] {
+func getWorksGraph(pageItemSlice []*extractwikipediadump.PageInMongo) *graph.Graph[int64] {
 
-	edgeChan := make(chan *graph.Edge[int], 1024)
+	IDMap := hashset.New[int64]()
+	for _, item := range pageItemSlice {
+		IDMap.Add(item.PageID)
+	}
+
+	edgeChan := make(chan *graph.Edge[int64], 1024)
 	go func() {
 		bar := progressbar.Default(-1)
-		for _, item := range pageIDMap {
+		for _, item := range pageItemSlice {
+
 			for _, linksOut := range item.PageLinksOutIDs {
-				edgeChan <- &graph.Edge[int]{
-					From: int(item.PageID),
-					To:   int(linksOut),
+
+				if !IDMap.Contains(linksOut) {
+					continue
+				}
+
+				edgeChan <- &graph.Edge[int64]{
+					From: item.PageID,
+					To:   linksOut,
 				}
 				bar.Add(1)
 
@@ -77,7 +166,6 @@ func getWorksGraph(pageIDMap map[int64]*extractwikipediadump.PageInMongo) *graph
 	worksGraph := graph.NewGraphFromChan(edgeChan)
 
 	return worksGraph
-
 }
 
 // // doc: https://github.com/jackc/pgx/blob/master/copy_from_test.go
@@ -204,4 +292,35 @@ func pageLinkHandle(revisionChan <-chan *extractwikipediadump.PageInMongo) map[i
 	// logical
 	// page out to pageLinksInIDs, category out to categoryLinksin
 	return pageIDMap
+}
+
+func rankWikiItemSlices(wikiItemMap map[int64]*extractwikipediadump.PageInMongo, graphLinksInCountMap map[int64]int) []*extractwikipediadump.PageInMongo {
+	// 过滤掉 redirect
+	wikiItemSlice := []*extractwikipediadump.PageInMongo{}
+	for key, item := range wikiItemMap {
+		if item.Redirect != nil {
+			continue
+		}
+		wikiItemSlice = append(wikiItemSlice, wikiItemMap[key])
+	}
+	// 降序
+	slices.SortFunc(wikiItemSlice, func(a, b *extractwikipediadump.PageInMongo) int {
+		return int(graphLinksInCountMap[b.PageID] - graphLinksInCountMap[a.PageID])
+	})
+	return wikiItemSlice
+}
+
+func sliceWikiItemByPercent(
+	wikiItemSlice []*extractwikipediadump.PageInMongo,
+	startPercent,
+	endPercent int,
+) []*extractwikipediadump.PageInMongo {
+
+	if startPercent == 0 && endPercent == 100 {
+		return wikiItemSlice
+	}
+	startKeyPosition := math.Ceil(float64(len(wikiItemSlice)) * float64(startPercent) / float64(100))
+	endKeyPosition := math.Ceil(float64(len(wikiItemSlice)) * float64(endPercent) / float64(100))
+
+	return wikiItemSlice[int(startKeyPosition):int(endKeyPosition)]
 }

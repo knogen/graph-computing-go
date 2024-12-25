@@ -1,5 +1,7 @@
 # project 1
-project 1 计算 Wikipedia & OpenAlex Graph entropy
+project 1 计算 Wikipedia & OpenAlex Graph 
+
+统计网络的点,边规模
 
 
 # mind storm
