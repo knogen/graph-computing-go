@@ -69,5 +69,8 @@ lab/wikipedia_subject_entropy.ipynb
 `lab/stats.ipynb`
 将Wikipedia, OpenAlex 网络统计信息整理到 Excel 表格, 并添加折线图.
 
-`lab/entropy.ipynb`
+`lab/degree_distruction_entropy.ipynb`
 统计 Wikipedia, OpenAlex 度分布熵整理到 Excel 表格, 并添加折线图.
+
+`lab/structural_entropy.ipynb`
+统计 Wikipedia, OpenAlex 网络结构熵整理到 Excel 表格, 并添加折线图.
