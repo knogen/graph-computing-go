@@ -29,6 +29,8 @@ to quickly create a Cobra application.`,
 			openalexentropy.MainSubjectExt()
 		case "total":
 			openalexentropy.MainExt()
+		case "structural":
+			openalexentropy.MultilayerSubjectExt()
 		}
 
 	},

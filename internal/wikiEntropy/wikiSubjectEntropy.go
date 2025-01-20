@@ -28,7 +28,7 @@ func MainSubject() {
 				pool.Submit(func() {
 					tag := fmt.Sprintf("lv%d-%s-%d", level, subjectTitle, year)
 					log.Info().Any("subjectTag", tag).Msg("graph entropy start")
-					revisionChan, err := mongoClient.Get_pages_subject_cat(tag, 0)
+					revisionChan, err := mongoClient.Get_pages_subject_cats([]string{tag}, 0)
 					if err != nil {
 						log.Fatal().Err(err).Msg("failed to get pages by year")
 					}
@@ -75,7 +75,7 @@ func MainSubject() {
 				for _, subjectTitle := range subjectList {
 					tag := fmt.Sprintf("lv%d-%s-%d", level, subjectTitle, year)
 					log.Info().Any("subjectTag", tag).Msg("graph entropy start")
-					subRevisionChan, err := mongoClient.Get_pages_subject_cat(tag, 0)
+					subRevisionChan, err := mongoClient.Get_pages_subject_cats([]string{tag}, 0)
 					if err != nil {
 						log.Fatal().Err(err).Msg("failed to get pages by year")
 					}

@@ -81,6 +81,7 @@ func taskGenerate(mongoClient *mongoDataBase) <-chan *YearTasks {
 	// }
 	yearStart := 2024
 	yearEnd := 1940
+	// yearEnd := 2010
 
 	outChan := make(chan *YearTasks)
 	go func() {

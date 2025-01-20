@@ -57,6 +57,7 @@ type PageInMongo struct {
 	PageLinksOutIDs      []int64   `bson:"-"`
 	PageLinksInIDs       []int64   `bson:"-"`
 	RedirectID           *int64    `bson:"-"`
+	CoreSubjectTag       []string  `bson:"core_subject_tag,omitempty"`
 }
 
 type RevisionData struct {
@@ -71,4 +72,11 @@ type RevisionData struct {
 	PageLinksOutIDs []int64              `bson:"-"`
 	PageLinksInIDs  []int64              `bson:"-"`
 	RedirectID      *int64               `bson:"-"`
+}
+
+type GoogleDistance struct {
+	Year     int     `bson:"year"`
+	A        int64   `bson:"a"`
+	B        int64   `bson:"b"`
+	Distance float64 `bson:"distance"`
 }

@@ -136,9 +136,9 @@ func (c *mongoDataBase) Get_pages_by_year(year, ns int) (<-chan *PageInMongo, er
 	return outChan, nil
 }
 
-func (c *mongoDataBase) Get_pages_subject_cat(tag string, ns int) (<-chan *PageInMongo, error) {
+func (c *mongoDataBase) Get_pages_subject_cats(tags []string, ns int) (<-chan *PageInMongo, error) {
 	outChan := make(chan *PageInMongo, 32)
-	filter := bson.M{"core_subject_tag": tag, "ns": ns}
+	filter := bson.M{"core_subject_tag": bson.M{"$in": tags}, "ns": ns}
 	cursor, err := c.database.Collection("revision_complete").Find(ctx, filter)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to find documents")
@@ -177,6 +177,21 @@ func (c *mongoDataBase) InsertEntropy(year, graphSize, edgeCount, startPercent, 
 	}
 }
 
+func (c *mongoDataBase) InsertGoogleDistance(data []GoogleDistance) {
+
+	opts := options.InsertMany().SetOrdered(false)
+	// Convert pageList to []interface{}
+	interfaceList := make([]interface{}, len(data))
+	for i, page := range data {
+		interfaceList[i] = page
+	}
+
+	_, err := c.database.Collection("google_distance").InsertMany(ctx, interfaceList, opts)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
 func (c *mongoDataBase) InsertSubjectEntropy(year, graphSize, edgeCount int, subject, entropyType string, level int, entropy any) {
 
 	document := map[string]any{
@@ -189,6 +204,19 @@ func (c *mongoDataBase) InsertSubjectEntropy(year, graphSize, edgeCount int, sub
 		"entropy":     entropy,
 	}
 	_, err := c.database.Collection("subject_entropy").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
+func (c *mongoDataBase) InsertNewStructuralEntropy(year, level int, entropy any) {
+
+	document := map[string]any{
+		"year":    year,
+		"level":   level,
+		"entropy": entropy,
+	}
+	_, err := c.database.Collection("new_structural_entropy").InsertOne(ctx, document)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to insert one")
 	}

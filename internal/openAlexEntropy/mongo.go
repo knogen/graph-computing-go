@@ -94,6 +94,21 @@ func (c *mongoDataBase) InsertSubjectEntropy(subject string, year, startPercent,
 	}
 }
 
+func (c *mongoDataBase) InsertNewStructuralEntropy(year, startPercent, endPercent int, rankType, entropy any) {
+
+	document := map[string]any{
+		"year":         year,
+		"startPercent": startPercent,
+		"endPercent":   endPercent,
+		"rankType":     rankType,
+		"entropy":      entropy,
+	}
+	_, err := c.database.Collection("new_structural_entropy").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
 // 因为有两种熵的计算, 所有结果数需要 > 2
 func (c *mongoDataBase) IsEntropyComplete(year, startPercent, endPercent int, rankType string) bool {
 	count, err := c.database.Collection("entropy").CountDocuments(ctx, bson.M{
