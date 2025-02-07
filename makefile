@@ -17,7 +17,7 @@ openalex-entropy:
 	go run main.go oae -t structural
 
 wiki-entropy:
-	go run main.go wikiEntropy -t structural
+	go run main.go wikiEntropy -t complexity
 
 wiki-extract:
 	go run main.go excractWikipediaDump
@@ -30,3 +30,6 @@ openalex-degree-stats:
 
 wikipedia-google-distance:
 	go run main.go wikiGoogleDistance
+
+wikiInDegree:
+	go run main.go wikiInDegree

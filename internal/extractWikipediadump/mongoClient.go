@@ -177,6 +177,25 @@ func (c *mongoDataBase) InsertEntropy(year, graphSize, edgeCount, startPercent, 
 	}
 }
 
+type InDegreeCountData struct {
+	ID     string `bson:"_id"`
+	PageID int64  `bson:"pageID"`
+	Count  int    `bson:"count"`
+	Year   int    `bson:"year"`
+}
+
+func (c *mongoDataBase) InsertMnayInDegreeCount(data []*InDegreeCountData) {
+
+	InsertData := make([]interface{}, len(data))
+	for i, v := range data {
+		InsertData[i] = v
+	}
+	_, err := c.database.Collection("revision_in_degree_count").InsertMany(ctx, InsertData)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
 func (c *mongoDataBase) InsertGoogleDistance(data []GoogleDistance) {
 
 	opts := options.InsertMany().SetOrdered(false)
@@ -190,6 +209,32 @@ func (c *mongoDataBase) InsertGoogleDistance(data []GoogleDistance) {
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to insert one")
 	}
+}
+
+func (c *mongoDataBase) GetGoogleDistanceByYear(year int) (<-chan *GoogleDistance, error) {
+
+	outChan := make(chan *GoogleDistance, 32)
+	filter := bson.M{"year": year, "distance": bson.M{"$gt": 0}}
+	cursor, err := c.database.Collection("google_distance").Find(ctx, filter)
+
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to find documents")
+		return nil, err
+	}
+
+	go func() {
+		defer close(outChan)
+		for cursor.Next(ctx) {
+			var page *GoogleDistance
+			err := cursor.Decode(&page)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to decode document")
+				continue
+			}
+			outChan <- page
+		}
+	}()
+	return outChan, nil
 }
 
 func (c *mongoDataBase) InsertSubjectEntropy(year, graphSize, edgeCount int, subject, entropyType string, level int, entropy any) {
@@ -217,6 +262,19 @@ func (c *mongoDataBase) InsertNewStructuralEntropy(year, level int, entropy any)
 		"entropy": entropy,
 	}
 	_, err := c.database.Collection("new_structural_entropy").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
+func (c *mongoDataBase) InsertDistanceComplexity(year, level int, complexity any) {
+
+	document := map[string]any{
+		"year":       year,
+		"level":      level,
+		"complexity": complexity,
+	}
+	_, err := c.database.Collection("new_distance_compllexity").InsertOne(ctx, document)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to insert one")
 	}

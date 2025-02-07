@@ -20,6 +20,7 @@ import (
 // 熵值计算思考, 这次计算的是一年的总熵, 从多个学科计算出一个总的熵, 只有时间维度的对比
 // 传递到计算方法
 // 学术圈网络
+// 禁用 total 排序算法, 减少资源消耗
 func MultilayerSubjectExt() {
 	log.Info().Msg("start")
 
@@ -27,10 +28,10 @@ func MultilayerSubjectExt() {
 	GatherLinksInCount := 2
 	// init pool
 	const (
-		initialPoolSize   = 8                     // 初始线程池大小
+		initialPoolSize   = 2                     // 初始线程池大小
 		maxPoolSize       = 12                    // 初始线程池大小
-		checkInterval     = 10 * 60 * time.Second // 检测间隔
-		resetPeakInterval = 60 * time.Minute      // 重置峰值间隔
+		checkInterval     = 60 * 60 * time.Second // 检测间隔
+		resetPeakInterval = 12 * 60 * time.Minute // 重置峰值间隔
 	)
 	pool, _ := ants.NewPool(initialPoolSize)
 	defer pool.Release()
@@ -108,8 +109,6 @@ func MultilayerSubjectExt() {
 			}
 			subjectWorksMap[lvSubject][item.ID] = item
 
-			// 只取第一个 conceptsLv0 确保学科不交叉
-			break
 		}
 		totalLinksInCountMap[item.ID] = item.LinksInWorksCount
 		bar.Add(1)
@@ -118,7 +117,7 @@ func MultilayerSubjectExt() {
 	log.Info().Int("subject", len(subjectWorksMap)).Msg("subject Count")
 
 	// 开始按年 - percent 的百分比计算任务.
-	for task := range taskGenerate(mongoClient) {
+	for task := range taskGenerate1() {
 		year := task.Year
 
 		if len(task.GraphTask) < 1 {
@@ -253,4 +252,53 @@ func process_plan(
 	entropyVal := alg.ProgressMultiLayerStructuralEntropy()
 	mongoClient.InsertNewStructuralEntropy(year, plan.PR.Start, plan.PR.End, plan.RankType, entropyVal)
 
+}
+
+// 对 task 进行初始化, 过滤已经完成的 task
+func taskGenerate1() <-chan *YearTasks {
+
+	// 添加检测范围
+	percentPlan := []percentRange{}
+	for _, stepEnd := range []int{100, 10, 40, 60, 80, 20} {
+		stepStart := 0
+		percentPlan = append(percentPlan, percentRange{
+			Start: stepStart,
+			End:   stepEnd,
+		})
+	}
+
+	yearStart := 2019
+	yearEnd := 1940
+	// yearEnd := 2010
+
+	outChan := make(chan *YearTasks)
+	go func() {
+		for year := yearStart; year >= yearEnd; year -= 1 {
+			oneYearTask := YearTasks{
+				Year: year,
+			}
+			for _, plan := range percentPlan {
+				if year == 2019 {
+					if plan.End == 10 {
+						continue
+					}
+					if plan.End == 40 {
+						continue
+					}
+				}
+				for _, rankType := range []string{"current"} {
+
+					// if !mongoClient.IsEntropyComplete(year, plan.Start, plan.End, rankType) {
+					oneYearTask.GraphTask = append(oneYearTask.GraphTask, graphTask{
+						PR:       plan,
+						RankType: rankType,
+					})
+					// }
+				}
+			}
+			outChan <- &oneYearTask
+		}
+		close(outChan)
+	}()
+	return outChan
 }

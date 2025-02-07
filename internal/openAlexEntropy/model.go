@@ -7,4 +7,18 @@ type worksMongo struct {
 	ReferencedWorks      []int64  `json:"referenced_works" bson:"referenced_works,omitempty"`
 	LinksInWorksCount    int32    `json:"-" bson:"links_in_works,omitempty"` //require computing
 	ConceptsLv0          []string `json:"-" bson:"Concepts_lv0,omitempty"`   //require computing
+	ConceptsLv1          []string `json:"-" bson:"Concepts_lv1,omitempty"`   //require computing
+	ConceptsLv2          []string `json:"-" bson:"Concepts_lv2,omitempty"`   //require computing
+}
+
+type conceptsMongo struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Level       int    `json:"level"`
+	Description string `json:"description"`
+	Ancestors   []struct {
+		ID          string `json:"id"`
+		DisplayName string `json:"display_name"`
+		Level       int    `json:"level"`
+	} `json:"ancestors"`
 }

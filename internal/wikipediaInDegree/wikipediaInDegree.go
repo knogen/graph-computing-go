@@ -1,9 +1,8 @@
-package wikientropy
+package wikipediaindegree
 
 import (
 	"context"
-	"math"
-	"slices"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -35,82 +34,57 @@ func init() {
 	}
 }
 
-type percentRange struct {
-	Start int
-	End   int
-}
-
-func taskPorpetionGenerate() []percentRange {
-
-	// 添加检测范围
-	percentPlan := []percentRange{}
-	for _, stepEnd := range []int{10, 20, 40, 60, 80, 100} {
-		stepStart := 0
-		percentPlan = append(percentPlan, percentRange{
-			Start: stepStart,
-			End:   stepEnd,
-		})
-	}
-
-	return percentPlan
-}
-
 func Main() {
 	mongoClient := extractwikipediadump.NewMongoDataBase(conf.MongoUrl, conf.WikiVersion)
 	pool, _ := ants.NewPool(20)
 	defer pool.Release()
 	wg := sync.WaitGroup{}
-	// for year := 2024; year >= 2001; year -= 1 {
 	for year := 2004; year <= 2024; year += 1 {
 
-		log.Info().Int("year", year).Msg("graph entropy start")
-		revisionChan, err := mongoClient.Get_pages_by_year(year, 0)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to get pages by year")
-		}
-
-		pageMap := pageLinkHandle(revisionChan)
-
-		// 按 in-degree 排序
-		graphLinksInCountMap := make(map[int64]int)
-		for _, item := range pageMap {
-			if item.Redirect != nil {
-				continue
+		wg.Add(1)
+		pool.Submit(func() {
+			log.Info().Int("year", year).Msg("graph entropy start")
+			revisionChan, err := mongoClient.Get_pages_by_year(year, 0)
+			if err != nil {
+				log.Fatal().Err(err).Msg("failed to get pages by year")
 			}
-			for _, linksOutID := range item.PageLinksOutIDs {
-				graphLinksInCountMap[linksOutID] += 1
+
+			pageMap := pageLinkHandle(revisionChan)
+
+			// 按 in-degree 排序
+			graphLinksInCountMap := make(map[int64]int)
+			for _, item := range pageMap {
+				if item.Redirect != nil {
+					continue
+				}
+				for _, linksOutID := range item.PageLinksOutIDs {
+					graphLinksInCountMap[linksOutID] += 1
+				}
 			}
-		}
 
-		// totalWikiItemSlice without redirect
-		totalWikiItemSlice := rankWikiItemSlices(pageMap, graphLinksInCountMap)
+			cacheData := make([]*extractwikipediadump.InDegreeCountData, 0, 10000)
 
-		// 获取 task percent
-		for _, taskItem := range taskPorpetionGenerate() {
+			for key, item := range graphLinksInCountMap {
+				cacheData = append(cacheData, &extractwikipediadump.InDegreeCountData{
+					ID:     fmt.Sprintf("%d-%d", key, year),
+					PageID: key,
+					Count:  item,
+					Year:   year,
+				})
+				if len(cacheData) >= 10000 {
+					mongoClient.InsertMnayInDegreeCount(cacheData)
+					cacheData = make([]*extractwikipediadump.InDegreeCountData, 0, 10000)
+				}
+			}
+			if len(cacheData) > 0 {
+				mongoClient.InsertMnayInDegreeCount(cacheData)
+			}
 
-			wg.Add(1)
-			pool.Submit(func() {
-
-				log.Info().Int("year", year).Int("start", taskItem.Start).Int("end", taskItem.End).Msg("graph entropy start")
-				wikiItemSlice := sliceWikiItemByPercent(totalWikiItemSlice, taskItem.Start, taskItem.End)
-
-				// 对 page 进行排序
-				graphSci := getWorksGraph(wikiItemSlice)
-
-				log.Info().Int("total page:", len(pageMap)).Int("total item:", len(graphSci.Nodes)).Msg("graph build finish")
-
-				entropy1 := graphSci.DegreeEntropy()
-				mongoClient.InsertEntropy(year, len(graphSci.Nodes), graphSci.EdgeCount, taskItem.Start, taskItem.End, "degree", entropy1)
-
-				entropy2 := graphSci.StructEntropy()
-				mongoClient.InsertEntropy(year, len(graphSci.Nodes), graphSci.EdgeCount, taskItem.Start, taskItem.End, "struct", entropy2)
-
-				log.Info().Int("year", year).Int("start", taskItem.Start).Int("end", taskItem.End).Msg("graph entropy complete")
-				wg.Done()
-			})
-		}
-		wg.Wait()
+			log.Info().Int("year", year).Msg("In degree save complete")
+			wg.Done()
+		})
 	}
+	wg.Wait()
 }
 
 func titleFilter(item string) string {
@@ -276,35 +250,4 @@ func pageLinkHandle(revisionChan <-chan *extractwikipediadump.PageInMongo) map[i
 	// logical
 	// page out to pageLinksInIDs, category out to categoryLinksin
 	return pageIDMap
-}
-
-func rankWikiItemSlices(wikiItemMap map[int64]*extractwikipediadump.PageInMongo, graphLinksInCountMap map[int64]int) []*extractwikipediadump.PageInMongo {
-	// 过滤掉 redirect
-	wikiItemSlice := []*extractwikipediadump.PageInMongo{}
-	for key, item := range wikiItemMap {
-		if item.Redirect != nil {
-			continue
-		}
-		wikiItemSlice = append(wikiItemSlice, wikiItemMap[key])
-	}
-	// 降序
-	slices.SortFunc(wikiItemSlice, func(a, b *extractwikipediadump.PageInMongo) int {
-		return int(graphLinksInCountMap[b.PageID] - graphLinksInCountMap[a.PageID])
-	})
-	return wikiItemSlice
-}
-
-func sliceWikiItemByPercent(
-	wikiItemSlice []*extractwikipediadump.PageInMongo,
-	startPercent,
-	endPercent int,
-) []*extractwikipediadump.PageInMongo {
-
-	if startPercent == 0 && endPercent == 100 {
-		return wikiItemSlice
-	}
-	startKeyPosition := math.Ceil(float64(len(wikiItemSlice)) * float64(startPercent) / float64(100))
-	endKeyPosition := math.Ceil(float64(len(wikiItemSlice)) * float64(endPercent) / float64(100))
-
-	return wikiItemSlice[int(startKeyPosition):int(endKeyPosition)]
 }

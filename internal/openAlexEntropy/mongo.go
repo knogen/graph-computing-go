@@ -109,6 +109,22 @@ func (c *mongoDataBase) InsertNewStructuralEntropy(year, startPercent, endPercen
 	}
 }
 
+func (c *mongoDataBase) InsertNewStructuralEntropySubDispline(year, startPercent, endPercent int, rankType, subject string, entropy any) {
+
+	document := map[string]any{
+		"year":         year,
+		"startPercent": startPercent,
+		"endPercent":   endPercent,
+		"rankType":     rankType,
+		"subject":      subject,
+		"entropy":      entropy,
+	}
+	_, err := c.database.Collection("new_structural_entropy_subdispline").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
 // 因为有两种熵的计算, 所有结果数需要 > 2
 func (c *mongoDataBase) IsEntropyComplete(year, startPercent, endPercent int, rankType string) bool {
 	count, err := c.database.Collection("entropy").CountDocuments(ctx, bson.M{
@@ -138,4 +154,53 @@ func (c *mongoDataBase) InsertGraphDegreeStats(year int, graphSize int, linksSta
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to insert one")
 	}
+}
+
+func (c *mongoDataBase) GetSubConcepts(topConcept string) []conceptsMongo {
+
+	// cursor, err := c.database.Collection("works").Find(ctx, bson.M{"links_in_works": bson.M{"$gte": 2}})
+	cursor, err := c.database.Collection("concepts").Find(ctx, bson.M{"ancestors.displayname": topConcept})
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert many")
+	}
+	result := []conceptsMongo{}
+	for cursor.Next(ctx) {
+		var page conceptsMongo
+		err = cursor.Decode(&page)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to decode")
+		}
+		result = append(result, page)
+	}
+	return result
+}
+
+func (c *mongoDataBase) Get_concepts_works(concepts []string, level int) <-chan *worksMongo {
+
+	filter := bson.M{}
+	if level == 0 {
+		filter = bson.M{"Concepts_lv0": bson.M{"$in": concepts}}
+	} else if level == 1 {
+		filter = bson.M{"Concepts_lv1": bson.M{"$in": concepts}}
+	} else if level == 2 {
+		filter = bson.M{"Concepts_lv2": bson.M{"$in": concepts}}
+	}
+
+	cursor, err := c.database.Collection("works").Find(ctx, filter)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert many")
+	}
+	outchan := make(chan *worksMongo)
+	go func() {
+		for cursor.Next(ctx) {
+			var page worksMongo
+			err = cursor.Decode(&page)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to decode")
+			}
+			outchan <- &page
+		}
+		close(outchan)
+	}()
+	return outchan
 }

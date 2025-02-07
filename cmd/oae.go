@@ -31,6 +31,8 @@ to quickly create a Cobra application.`,
 			openalexentropy.MainExt()
 		case "structural":
 			openalexentropy.MultilayerSubjectExt()
+		case "test":
+			openalexentropy.SubDispolieDistructuralEntropyDemo()
 		}
 
 	},

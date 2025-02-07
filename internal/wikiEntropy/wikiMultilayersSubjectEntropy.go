@@ -43,7 +43,7 @@ func MultilayerSubjectExt() {
 						continue
 					}
 					// log.Info().Any("PageID", item.PageID).Any("PageLinksOutIDs", item.PageLinksOutIDs).Any("CoreSubjectTag", item.CoreSubjectTag).Msg("detail")
-					alg.SetNode(item.PageID, item.PageLinksOutIDs, item.CoreSubjectTag[:1])
+					alg.SetNode(item.PageID, item.PageLinksOutIDs, item.CoreSubjectTag)
 				}
 				entropyVal := alg.ProgressMultiLayerStructuralEntropy()
 				log.Info().Any("len", len(alg.NodesMap)).Int("year", year).Float64("lv", float64(level)).Float64("BigDegreeEntropy", entropyVal.BigDegreeEntropy).Float64("LittleStructuralEntropy", entropyVal.LittleStructuralEntropy).Msg("graph entropy complete")
