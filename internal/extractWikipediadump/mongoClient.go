@@ -274,7 +274,7 @@ func (c *mongoDataBase) InsertDistanceComplexity(year, level int, complexity any
 		"level":      level,
 		"complexity": complexity,
 	}
-	_, err := c.database.Collection("new_distance_compllexity").InsertOne(ctx, document)
+	_, err := c.database.Collection("new_distance_complexity").InsertOne(ctx, document)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to insert one")
 	}

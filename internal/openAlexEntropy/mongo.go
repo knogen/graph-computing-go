@@ -57,6 +57,18 @@ func (c *mongoDataBase) Get_works() <-chan *worksMongo {
 	return outchan
 }
 
+func (c *mongoDataBase) InsertDistanceComplexity(year, complexity any) {
+
+	document := map[string]any{
+		"year":       year,
+		"complexity": complexity,
+	}
+	_, err := c.database.Collection("new_distance_complexity").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
 func (c *mongoDataBase) InsertEntropy(year, startPercent, endPercent, graphSize, edgeCount int, rankType, entropyType string, entropy any) {
 
 	document := map[string]any{
@@ -161,7 +173,7 @@ func (c *mongoDataBase) GetSubConcepts(topConcept string) []conceptsMongo {
 	// cursor, err := c.database.Collection("works").Find(ctx, bson.M{"links_in_works": bson.M{"$gte": 2}})
 	cursor, err := c.database.Collection("concepts").Find(ctx, bson.M{"ancestors.displayname": topConcept})
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to insert many")
+		log.Warn().Err(err).Msg("failed to get many")
 	}
 	result := []conceptsMongo{}
 	for cursor.Next(ctx) {

@@ -2,6 +2,7 @@ package wikientropy
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	distanceComplexity "graph-computing-go/internal/distanceComplexity"
@@ -13,7 +14,7 @@ import (
 )
 
 // 使用学术圈, 和学术圈中每篇文章的距离, 计算改进过的距离复杂度
-func AcandemicDistanceCompllexity() {
+func AcandemicDistanceComplexity() {
 	subjectList := []string{"Mathematics", "Physics", "Computer science", "Engineering disciplines", "Medicine",
 		"Biology", "Chemistry", "Materials science", "Geology", "Geography", "Environmental science",
 		"Economics", "Sociology", "Psychology", "Political science", "Philosophy", "Business", "Art",
@@ -46,7 +47,25 @@ func AcandemicDistanceCompllexity() {
 						continue
 					}
 					nodeIDSet.Add(item.PageID)
-					dcg.SetNodeCategory(item.PageID, item.CoreSubjectTag)
+
+					// 过滤掉多余的 tag 信息
+					coreTags := []string{}
+					lvStart := fmt.Sprintf("lv%d-", level)
+					for _, tag := range item.CoreSubjectTag {
+						if !strings.HasPrefix(tag, lvStart) {
+							continue
+						}
+
+						parts := strings.Split(tag, "-")
+						filteredTag := strings.Join(parts[1:len(parts)-1], "-")
+
+						for _, subjectTitle := range subjectList {
+							if filteredTag == subjectTitle {
+								coreTags = append(coreTags, subjectTitle)
+							}
+						}
+					}
+					dcg.SetNodeCategory(item.PageID, coreTags)
 				}
 
 				distanceChan, err := mongoClient.GetGoogleDistanceByYear(year)
@@ -59,7 +78,6 @@ func AcandemicDistanceCompllexity() {
 						continue
 					}
 					dcg.SetEdge(item.A, item.B, item.Distance)
-
 				}
 
 				complexityVal := dcg.ProgressDistanceComplexity()

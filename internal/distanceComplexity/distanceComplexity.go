@@ -15,15 +15,15 @@ type node struct {
 	Categroy  []string
 }
 
-type distanceGraph struct {
+type DistanceGraph struct {
 	NodesMap    map[int64]*node
 	distanceMap map[int64]map[int64]float64
 	maxID       int64
 	copyNodeMap map[int64][]int64 // 保存复制点的记录, 生成入度的时候生效
 }
 
-func NewDistanceGraph() *distanceGraph {
-	return &distanceGraph{
+func NewDistanceGraph() *DistanceGraph {
+	return &DistanceGraph{
 		NodesMap:    make(map[int64]*node),
 		copyNodeMap: make(map[int64][]int64),
 		distanceMap: make(map[int64]map[int64]float64),
@@ -31,7 +31,7 @@ func NewDistanceGraph() *distanceGraph {
 }
 
 // 所有的节点都会加入 graph 进行计算
-func (c *distanceGraph) SetEdge(ID, targetID int64, weight float64) {
+func (c *DistanceGraph) SetEdge(ID, targetID int64, weight float64) {
 	if _, ok := c.NodesMap[ID]; !ok {
 		c.NodesMap[ID] = &node{
 			ID:        ID,
@@ -71,7 +71,7 @@ func (c *distanceGraph) SetEdge(ID, targetID int64, weight float64) {
 }
 
 // set node category, 将范围内的点都 set category
-func (c *distanceGraph) SetNodeCategory(ID int64, Categroy []string) {
+func (c *DistanceGraph) SetNodeCategory(ID int64, Categroy []string) {
 	if _, ok := c.NodesMap[ID]; ok {
 		c.NodesMap[ID].Categroy = Categroy
 	} else {
@@ -88,7 +88,7 @@ func (c *distanceGraph) SetNodeCategory(ID int64, Categroy []string) {
 }
 
 // 网络收缩, 对交叉学科进行复制, 并去除交叉性
-func (c *distanceGraph) cleanGraph() {
+func (c *DistanceGraph) cleanGraph() {
 
 	// 复制交叉学科
 	for _, item := range c.NodesMap {
@@ -140,59 +140,106 @@ func (c *distanceGraph) cleanGraph() {
 }
 
 type complexityResult struct {
-	BigComplexity   float64
-	LittlComplexity float64
+	BigComplexity    float64
+	LittlComplexity  float64
+	ModuleComplexity map[string]float64
+	ModuleNodeSize   map[string]int64
+	ModuleEdgeCount  map[string]int64
 }
 
 // 接受有多个分区的有向图, 计算入度结构熵
-func (c *distanceGraph) ProgressDistanceComplexity() complexityResult {
+func (c *DistanceGraph) ProgressDistanceComplexity() complexityResult {
 	c.cleanGraph()
 
 	// 统计模块内的距离, 模块间的距离 va * 2,ga
 	// vall = SUM(va*2) + SUM(ga)
 	var vall float64
-	modelInnerDistanceTotalMap := make(map[string][]float64)
-	modelOutterDistanceTotalMap := make(map[string]float64)
+	moduleInnerNodeDistanceTotalMap := make(map[string]map[int64][]float64)
+	moduleOutterDistanceTotalMap := make(map[string]float64)
+	moduleInnerDistanceTotalMap := make(map[string]float64)
+
+	moduleEdgeCount := make(map[string]int64)
+	// log.Debug().Any("distanceMap", c.distanceMap).Msg("test")
+
 	for IDA, distanceMap := range c.distanceMap {
 		// 只计算图内的节点
 		if itemA, ok := c.NodesMap[IDA]; ok {
-			modelA := itemA.Categroy[0]
+			moduleA := itemA.Categroy[0]
 			for IDB, distance := range distanceMap {
 				if itemB, ok := c.NodesMap[IDB]; ok {
 					vall += distance * 2
-					modelB := itemB.Categroy[0]
-					if modelA == modelB {
-						modelInnerDistanceTotalMap[modelA] = append(modelInnerDistanceTotalMap[modelA], distance)
+					moduleB := itemB.Categroy[0]
+					if moduleA == moduleB {
+						if _, ok := moduleInnerNodeDistanceTotalMap[moduleA]; !ok {
+							moduleInnerNodeDistanceTotalMap[moduleA] = make(map[int64][]float64)
+						}
+						moduleEdgeCount[moduleA] += 1
+						moduleInnerNodeDistanceTotalMap[moduleA][IDA] = append(moduleInnerNodeDistanceTotalMap[moduleA][IDA], distance)
+						moduleInnerNodeDistanceTotalMap[moduleA][IDB] = append(moduleInnerNodeDistanceTotalMap[moduleA][IDB], distance)
+						moduleInnerDistanceTotalMap[moduleA] += distance * 2
 					} else {
-						modelOutterDistanceTotalMap[modelA] += distance
-						modelOutterDistanceTotalMap[modelB] += distance
+						moduleOutterDistanceTotalMap[moduleA] += distance
+						moduleOutterDistanceTotalMap[moduleB] += distance
 					}
 				}
 			}
 		}
 	}
-	// log.Info().Any("vall", vall).Any("modelInnerDistanceTotalMap", modelInnerDistanceTotalMap).Any("modelOutterDistanceTotalMap", modelOutterDistanceTotalMap).Msg("test")
+	// log.Info().Any("vall", vall).Any("moduleInnerNodeDistanceTotalMap", moduleInnerNodeDistanceTotalMap).Any("moduleOutterDistanceTotalMap", moduleOutterDistanceTotalMap).Msg("test")
 
-	var entropyRet float64
-	for modelName, distanceList := range modelInnerDistanceTotalMap {
+	var moduleComplexSum float64
+	nodeEntropyMap := make(map[int64]float64)
 
-		var entropyModel float64 //模块的距离复杂度
-		var sum float64          //路径总长度
-		for _, distance := range distanceList {
-			sum += distance
+	moduleNodeSize := make(map[string]int64)
+	moduleComplexity := make(map[string]float64)
+	for moduleName, distanceMap := range moduleInnerNodeDistanceTotalMap {
+
+		// 计算模块内节点的距离复杂度
+		for nodeID, distanceList := range distanceMap {
+			moduleNodeSize[moduleName] += 1
+			var sum float64 //某个点模块内连接路径总长度
+			for _, distance := range distanceList {
+				sum += distance
+			}
+
+			var entropyNode float64 //模块的距离复杂度
+			for _, distance := range distanceList {
+				entropyNode -= distance / sum * math.Log2(distance/sum)
+
+				// pass
+				log.Debug().Any("distance", distance).
+					Any("sum", sum).
+					Any("nodeID", nodeID).
+					Msg("-- node Entropy detail")
+			}
+
+			// pass
+			log.Debug().Any("entropyNode", entropyNode).
+				Any("nodeID", nodeID).
+				Msg("node Entropy")
+
+			nodeEntropyMap[nodeID] = entropyNode
 		}
-		sum *= 2
 
-		for _, distance := range distanceList {
-			entropyModel -= distance / sum * math.Log2(distance/sum)
+		var hModule float64
+		for nodeID, distanceList := range distanceMap {
+			var sum float64 //某个点模块内连接路径总长度
+			for _, distance := range distanceList {
+				sum += distance
+			}
+			hModule += sum / moduleInnerDistanceTotalMap[moduleName] * nodeEntropyMap[nodeID]
+
 		}
-		// log.Info().Any("modelName", math.Log2(sum/vall)*modelOutterDistanceTotalMap[modelName]).Any("sum", sum).Any("entropyModel", entropyModel).Msg("entropyModel")
-		// log.Info().Any(modelName, modelOutterDistanceTotalMap[modelName]).Any("vall", vall).Any("sum", sum).Msg("entropyRet")
+		moduleComplexity[moduleName] = hModule
+		moduleEntropy := hModule*moduleInnerDistanceTotalMap[moduleName]/vall - math.Log2(moduleInnerDistanceTotalMap[moduleName]/vall)*moduleOutterDistanceTotalMap[moduleName]/vall
+		moduleComplexSum += moduleEntropy
 
-		entropyRet += entropyModel*sum/vall - math.Log2(sum/vall)*modelOutterDistanceTotalMap[modelName]/vall
+		log.Debug().Any("hmodule", hModule).
+			Any("moduleName", moduleName).
+			Msg("hModel")
 	}
 
-	// 计算 distance compllexity
+	// 计算 distance complexity
 
 	// collect distacne
 	distance_collect := make(map[int64][]float64)
@@ -212,11 +259,6 @@ func (c *distanceGraph) ProgressDistanceComplexity() complexityResult {
 		}
 		sumRi = append(sumRi, sumR)
 
-		// if sumR == 0 {
-		// 	log.Info().Any("sumR", sumR).Msg("distance")
-		// 	break
-		// }
-		// log.Info().Any("sumR", sumR).Msg("sumR")
 		var sumPi float64
 		for _, distance := range distanceList {
 			pi := distance / sumR
@@ -236,8 +278,10 @@ func (c *distanceGraph) ProgressDistanceComplexity() complexityResult {
 	var distanceComplex float64
 	for index := range sumRi {
 		distanceComplex += Hi[index] * sumRi[index] / G
-
 	}
-
-	return complexityResult{distanceComplex, entropyRet}
+	log.Debug().Any("modelComplexity", moduleComplexity).
+		Any("moduleNodeSize", moduleNodeSize).
+		Any("moduleEdgeCount", moduleEdgeCount).
+		Msg("moduleComplexity")
+	return complexityResult{distanceComplex, moduleComplexSum, moduleComplexity, moduleNodeSize, moduleEdgeCount}
 }

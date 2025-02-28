@@ -2,6 +2,7 @@ package wikientropy
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"graph-computing-go/internal/entropy"
@@ -42,8 +43,26 @@ func MultilayerSubjectExt() {
 					if item.Redirect != nil {
 						continue
 					}
+
+					// 过滤掉多余的 tag 信息
+					coreTags := []string{}
+					lvStart := fmt.Sprintf("lv%d-", level)
+					for _, tag := range item.CoreSubjectTag {
+						if !strings.HasPrefix(tag, lvStart) {
+							continue
+						}
+
+						parts := strings.Split(tag, "-")
+						filteredTag := strings.Join(parts[1:len(parts)-1], "-")
+
+						for _, subjectTitle := range subjectList {
+							if filteredTag == subjectTitle {
+								coreTags = append(coreTags, subjectTitle)
+							}
+						}
+					}
 					// log.Info().Any("PageID", item.PageID).Any("PageLinksOutIDs", item.PageLinksOutIDs).Any("CoreSubjectTag", item.CoreSubjectTag).Msg("detail")
-					alg.SetNode(item.PageID, item.PageLinksOutIDs, item.CoreSubjectTag)
+					alg.SetNode(item.PageID, item.PageLinksOutIDs, coreTags)
 				}
 				entropyVal := alg.ProgressMultiLayerStructuralEntropy()
 				log.Info().Any("len", len(alg.NodesMap)).Int("year", year).Float64("lv", float64(level)).Float64("BigDegreeEntropy", entropyVal.BigDegreeEntropy).Float64("LittleStructuralEntropy", entropyVal.LittleStructuralEntropy).Msg("graph entropy complete")

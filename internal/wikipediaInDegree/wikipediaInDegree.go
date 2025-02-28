@@ -8,11 +8,8 @@ import (
 
 	extractwikipediadump "graph-computing-go/internal/extractWikipediadump"
 
-	"github.com/emirpasic/gods/v2/sets/hashset"
-	"github.com/ider-zh/graph-entropy-go/graph"
 	"github.com/panjf2000/ants/v2"
 	"github.com/rs/zerolog/log"
-	"github.com/schollz/progressbar/v3"
 	"github.com/sethvargo/go-envconfig"
 )
 
@@ -89,41 +86,6 @@ func Main() {
 
 func titleFilter(item string) string {
 	return strings.TrimSpace(strings.ReplaceAll(strings.ToLower(item), "_", " "))
-}
-
-func getWorksGraph(pageItemSlice []*extractwikipediadump.PageInMongo) *graph.Graph[int64] {
-
-	IDMap := hashset.New[int64]()
-	for _, item := range pageItemSlice {
-		IDMap.Add(item.PageID)
-	}
-
-	edgeChan := make(chan *graph.Edge[int64], 1024)
-	go func() {
-		bar := progressbar.Default(-1)
-		for _, item := range pageItemSlice {
-
-			for _, linksOut := range item.PageLinksOutIDs {
-
-				if !IDMap.Contains(linksOut) {
-					continue
-				}
-
-				edgeChan <- &graph.Edge[int64]{
-					From: item.PageID,
-					To:   linksOut,
-				}
-				bar.Add(1)
-
-			}
-		}
-		bar.Close()
-		close(edgeChan)
-	}()
-
-	worksGraph := graph.NewGraphFromChan(edgeChan)
-
-	return worksGraph
 }
 
 // // doc: https://github.com/jackc/pgx/blob/master/copy_from_test.go

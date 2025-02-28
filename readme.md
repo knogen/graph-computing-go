@@ -64,6 +64,9 @@ lab/wikipedia_subject_entropy.ipynb
 通过再 OpenAlex 导入项目中设定的 Concepts_lv0 字段, 能够找到学科, 再按照网络子图的计算逻辑, 计算出每个 snapshot 的度分布熵, 结构熵, 并存储到 mongodb.
 
 
+## distanceComplexity
+使用距离代替度数, 计算的距离复杂度
+
 # 统计代码
 
 `lab/stats.ipynb`

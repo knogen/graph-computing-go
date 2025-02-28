@@ -34,7 +34,7 @@ to quickly create a Cobra application.`,
 		case "structural":
 			wikientropy.MultilayerSubjectExt()
 		case "complexity":
-			wikientropy.AcandemicDistanceCompllexity()
+			wikientropy.AcandemicDistanceComplexity()
 		}
 
 	},
