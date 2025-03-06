@@ -32,9 +32,11 @@ to quickly create a Cobra application.`,
 		case "structural":
 			openalexentropy.MultilayerSubjectExt()
 		case "lv2DistanceComplexity":
-			openalexentropy.Lv2DisplineDistanceComplexity()
+			openalexentropy.Lv2DisciplineDistanceComplexity()
 		case "test":
 			openalexentropy.SubDispolieDistructuralEntropyDemo()
+		case "tddc":
+			openalexentropy.TopDisciplineDistanceComplexity()
 		}
 
 	},

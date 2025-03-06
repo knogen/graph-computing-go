@@ -135,7 +135,7 @@ func SubDispolieDistructuralEntropyDemo() {
 				pool.Submit(func() {
 					defer wg.Done()
 					log.Info().Any("plan", plan).Msg("start plan")
-					process_subdispline_plan(
+					process_subdiscipline_plan(
 						year,
 						newSubjectWorksMap,
 						plan,
@@ -153,7 +153,7 @@ func SubDispolieDistructuralEntropyDemo() {
 
 }
 
-func process_subdispline_plan(
+func process_subdiscipline_plan(
 	year int,
 	subjectWorksMap map[string]map[int64]*worksMongo,
 	plan graphTask,
@@ -204,7 +204,7 @@ func process_subdispline_plan(
 	}
 
 	entropyVal := alg.ProgressMultiLayerStructuralEntropy()
-	mongoClient.InsertNewStructuralEntropySubDispline(year, plan.PR.Start, plan.PR.End, plan.RankType, topSubject, entropyVal)
+	mongoClient.InsertNewStructuralEntropySubDiscipline(year, plan.PR.Start, plan.PR.End, plan.RankType, topSubject, entropyVal)
 
 }
 

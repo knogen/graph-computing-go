@@ -69,6 +69,19 @@ func (c *mongoDataBase) InsertDistanceComplexity(year, complexity any) {
 	}
 }
 
+func (c *mongoDataBase) InsertTopDisciplineDistanceComplexity(year, discipline, complexity any) {
+
+	document := map[string]any{
+		"year":       year,
+		"discipline": discipline,
+		"complexity": complexity,
+	}
+	_, err := c.database.Collection("top_discipline_distance_complexity").InsertOne(ctx, document)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to insert one")
+	}
+}
+
 func (c *mongoDataBase) InsertEntropy(year, startPercent, endPercent, graphSize, edgeCount int, rankType, entropyType string, entropy any) {
 
 	document := map[string]any{
@@ -121,7 +134,7 @@ func (c *mongoDataBase) InsertNewStructuralEntropy(year, startPercent, endPercen
 	}
 }
 
-func (c *mongoDataBase) InsertNewStructuralEntropySubDispline(year, startPercent, endPercent int, rankType, subject string, entropy any) {
+func (c *mongoDataBase) InsertNewStructuralEntropySubDiscipline(year, startPercent, endPercent int, rankType, subject string, entropy any) {
 
 	document := map[string]any{
 		"year":         year,
@@ -131,7 +144,7 @@ func (c *mongoDataBase) InsertNewStructuralEntropySubDispline(year, startPercent
 		"subject":      subject,
 		"entropy":      entropy,
 	}
-	_, err := c.database.Collection("new_structural_entropy_subdispline").InsertOne(ctx, document)
+	_, err := c.database.Collection("new_structural_entropy_subdiscipline").InsertOne(ctx, document)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to insert one")
 	}

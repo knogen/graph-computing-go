@@ -14,7 +14,7 @@ generate_grpc:
 	protoc --go_out=.  --go-grpc_out=.  protos/wikiTextParser.proto 
 
 openalex-entropy:
-	go run main.go oae -t lv2DistanceComplexity
+	go run main.go oae -t tddc
 
 wiki-entropy:
 	go run main.go wikiEntropy -t complexity

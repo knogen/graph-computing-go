@@ -109,7 +109,7 @@ func getNisrecord(filePath string) chan *nisRecord {
 }
 
 // 使用学术圈, 和学术圈中每篇文章的距离, 计算改进过的距离复杂度
-func Lv2DisplineDistanceComplexity() {
+func Lv2DisciplineDistanceComplexity() {
 	subjectList := []string{"Mathematics", "Physics", "Computer science", "Engineering", "Medicine",
 		"Biology", "Chemistry", "Materials science", "Geology", "Geography", "Environmental science",
 		"Economics", "Sociology", "Psychology", "Political science", "Philosophy", "Business", "Art",
